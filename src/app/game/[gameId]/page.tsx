@@ -67,9 +67,13 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
   const [lineWinners, setLineWinners] = useState<Winner[]>([]);
   const [bingoWinners, setBingoWinners] = useState<Winner[]>([]);
 
-  // 🔥 מעקב התראות (כדי לא להציג את אותה הודעה שוב)
+  // 🔥 מעקב התראות — כדי לא להציג את אותה הודעה שוב
   const [notifiedLineCount, setNotifiedLineCount] = useState(0);
   const [notifiedBingoCount, setNotifiedBingoCount] = useState(0);
+
+  // 🔥 מעקב פתיחת מודאל — כדי לא לפתוח שוב אחרי שהמשתמש סגר
+  const [shownLineWinModal, setShownLineWinModal] = useState(false);
+  const [shownBingoWinModal, setShownBingoWinModal] = useState(false);
 
   const showAnnouncement = useCallback(
     (msg: string, type: "info" | "success" | "error" = "info", duration = 8000) => {
@@ -120,8 +124,9 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
     return () => clearInterval(id);
   }, []);
 
-  // 🔥 הודעה קופצת כשיש זוכה שורה חדש
+  // 🔥 הודעה קופצת "📏 שורה!" — רק אחרי שהאדמין אישר (lineDistributed)
   useEffect(() => {
+    if (!game?.lineDistributed) return;
     if (lineWinners.length > notifiedLineCount) {
       const names = lineWinners.map((w) => w.name).join(", ");
       const prize = transparency.linePrizePerWinner;
@@ -136,10 +141,17 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
       }
       setNotifiedLineCount(lineWinners.length);
     }
-  }, [lineWinners, notifiedLineCount, transparency.linePrizePerWinner, showAnnouncement]);
+  }, [
+    game?.lineDistributed,
+    lineWinners,
+    notifiedLineCount,
+    transparency.linePrizePerWinner,
+    showAnnouncement,
+  ]);
 
-  // 🔥 הודעה קופצת כשיש זוכה בינגו חדש
+  // 🔥 הודעה קופצת "🏆 בינגו!" — רק אחרי שהאדמין אישר (bingoDistributed)
   useEffect(() => {
+    if (!game?.bingoDistributed) return;
     if (bingoWinners.length > notifiedBingoCount) {
       const names = bingoWinners.map((w) => w.name).join(", ");
       const prize = transparency.bingoPrizePerWinner;
@@ -154,7 +166,57 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
       }
       setNotifiedBingoCount(bingoWinners.length);
     }
-  }, [bingoWinners, notifiedBingoCount, transparency.bingoPrizePerWinner, showAnnouncement]);
+  }, [
+    game?.bingoDistributed,
+    bingoWinners,
+    notifiedBingoCount,
+    transparency.bingoPrizePerWinner,
+    showAnnouncement,
+  ]);
+
+  // 🔥 פתיחת מודאל "זכית!" — רק אחרי שהאדמין אישר, ורק לזוכה עצמו
+  useEffect(() => {
+    if (!userId || !game) return;
+
+    // שורה — הזוכה עצמו, אחרי אישור האדמין
+    if (
+      game.lineDistributed &&
+      !shownLineWinModal &&
+      game.lineWinnerUserIds.includes(userId)
+    ) {
+      setWinModal({
+        open: true,
+        prizeType: "LINE",
+        amount: transparency.linePrizePerWinner,
+        winnersCount: transparency.lineWinnersCount,
+      });
+      setShownLineWinModal(true);
+    }
+
+    // בינגו — הזוכה עצמו, אחרי אישור האדמין
+    if (
+      game.bingoDistributed &&
+      !shownBingoWinModal &&
+      game.bingoWinnerUserIds.includes(userId)
+    ) {
+      setWinModal({
+        open: true,
+        prizeType: "BINGO",
+        amount: transparency.bingoPrizePerWinner,
+        winnersCount: transparency.bingoWinnersCount,
+      });
+      setShownBingoWinModal(true);
+    }
+  }, [
+    game,
+    userId,
+    shownLineWinModal,
+    shownBingoWinModal,
+    transparency.linePrizePerWinner,
+    transparency.bingoPrizePerWinner,
+    transparency.lineWinnersCount,
+    transparency.bingoWinnersCount,
+  ]);
 
   const handleEvent = useCallback(
     (event: GameEvent) => {
@@ -268,12 +330,8 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
       return;
     }
 
-    setWinModal({
-      open: true,
-      prizeType: claimType,
-      amount: data.prize ?? 0,
-      winnersCount: data.winnersCount ?? 1,
-    });
+    // 🔥 לא פותחים מודאל — רק הודעה שההכרזה נרשמה
+    showAnnouncement("✓ ההכרזה שלך נרשמה — ממתין לאישור האדמין", "success", 6000);
 
     await loadState();
   }
@@ -358,8 +416,8 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
           </span>
         </div>
 
-        {/* 🏆 באנר זוכה שורה — LIVE */}
-        {game.status === "LIVE" && lineWinners.length > 0 && !game.lineDistributed && (
+        {/* 🏆 באנר זוכה שורה — LIVE, אבל רק אחרי אישור האדמין */}
+        {game.status === "LIVE" && game.lineDistributed && lineWinners.length > 0 && (
           <div className="bg-blue-500 text-white rounded-2xl p-3 text-center mb-3">
             <p className="text-[10px] sm:text-xs font-bold mb-1">📏 זוכה השורה:</p>
             <p className="text-sm sm:text-base font-extrabold">
