@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 
@@ -69,7 +69,7 @@ export function WinModal({ isOpen, prizeType, amount, winnersCount, onClose }: P
           <div className="text-5xl font-extrabold text-yellow-400">
             {amount.toLocaleString("he-IL")}
           </div>
-          <div className="text-sm text-gray-400 mt-1">מטבעות 🪙</div>
+          <div className="text-sm text-gray-400 mt-1">מטבעות 💵</div>
         </div>
 
         {winnersCount > 1 && (

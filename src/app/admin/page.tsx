@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -54,7 +54,7 @@ export default function AdminDashboardPage() {
           <StatCard label="סה״כ משתמשים" value={stats.totalUsers} icon="👥" />
           <StatCard label="משחקים פעילים" value={stats.activeGames} icon="🎮" />
           <StatCard label="בקשות החזר ממתינות" value={stats.pendingRefunds} icon="💰" />
-          <StatCard label="מטבעות במערכת" value={stats.totalCoinsInSystem} icon="🪙" />
+          <StatCard label="מטבעות במערכת" value={stats.totalCoinsInSystem} icon="💵" />
         </div>
       )}
 

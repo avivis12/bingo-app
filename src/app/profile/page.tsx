@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -181,7 +181,7 @@ export default function ProfilePage() {
           <div className="bg-black text-white rounded-2xl p-4 col-span-2 md:col-span-1">
             <div className="text-xs text-gray-400 mb-1">יתרת מטבעות</div>
             <div className="text-3xl font-extrabold">{me.coinsBalance}</div>
-            <div className="text-xs text-gray-400 mt-1">🪙</div>
+            <div className="text-xs text-gray-400 mt-1">💵</div>
           </div>
           <StatBox label="עסקאות" value={stats.totalTx} icon="📊" />
           <StatBox label="זכיות" value={stats.wins} icon="🏆" />
@@ -268,7 +268,7 @@ export default function ProfilePage() {
                   className="flex items-center justify-between bg-gray-50 rounded-xl px-4 py-3"
                 >
                   <div className="flex items-center gap-3">
-                    <span className="font-bold text-black">{r.amountRequested} 🪙</span>
+                    <span className="font-bold text-black">{r.amountRequested} 💵</span>
                     <span className="text-xs text-gray-500">
                       {new Date(r.createdAt).toLocaleDateString("he-IL")}
                     </span>

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 
@@ -102,7 +102,7 @@ export default function AdminUsersPage() {
                       {u.phone} · {u.email}
                     </div>
                     <div className={`text-sm mt-1 font-semibold ${selected?.id === u.id ? "text-white" : "text-black"}`}>
-                      יתרה: {u.coinsBalance} 🪙
+                      יתרה: {u.coinsBalance} 💵
                     </div>
                   </li>
                 ))}
@@ -117,7 +117,7 @@ export default function AdminUsersPage() {
             <div className="bg-white border border-gray-200 rounded-2xl p-6 sticky top-8">
               <h2 className="font-bold text-lg mb-1">עדכון יתרה</h2>
               <p className="text-sm text-gray-500 mb-6">
-                {selected.name} · יתרה נוכחית: <b className="text-black">{selected.coinsBalance} 🪙</b>
+                {selected.name} · יתרה נוכחית: <b className="text-black">{selected.coinsBalance} 💵</b>
               </p>
 
               <div className="space-y-4">

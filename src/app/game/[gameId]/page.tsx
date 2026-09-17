@@ -351,7 +351,7 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
               </span>
               {balance !== null && (
                 <span>
-                  היתרה שלך: <b>{balance}</b> 🪙
+                  היתרה שלך: <b>{balance}</b> 💵
                 </span>
               )}
             </div>

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
@@ -43,7 +43,7 @@ export function BalanceDisplay() {
 
   return (
     <div className="fixed top-3 left-3 z-40 bg-black text-white rounded-full px-4 py-2 shadow-lg flex items-center gap-2 text-sm font-bold">
-      <span>🪙</span>
+      <span>💵</span>
       <span>{balance.toLocaleString("he-IL")}</span>
     </div>
   );
