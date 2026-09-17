@@ -38,6 +38,9 @@ const REFUND_STATUS_STYLES: Record<string, string> = {
   REJECTED: "bg-gray-100 text-gray-400",
 };
 
+const INITIAL_TX_COUNT = 5;
+const LOAD_MORE_STEP = 5;
+
 export default function ProfilePage() {
   const { data: session } = useSession();
   const [me, setMe] = useState<Me | null>(null);
@@ -48,6 +51,7 @@ export default function ProfilePage() {
   const [status, setStatus] = useState<{ type: "ok" | "err"; msg: string } | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [showRefundForm, setShowRefundForm] = useState(false);
+  const [visibleTxCount, setVisibleTxCount] = useState(INITIAL_TX_COUNT);
 
   async function loadAll() {
     const [meRes, txRes, refundsRes] = await Promise.all([
@@ -109,6 +113,11 @@ export default function ProfilePage() {
     .slice(0, 2)
     .join("")
     .toUpperCase();
+
+  // 🔥 חיתוך הרשימה
+  const visibleTransactions = transactions.slice(0, visibleTxCount);
+  const hasMore = transactions.length > visibleTxCount;
+  const canCollapse = visibleTxCount > INITIAL_TX_COUNT;
 
   return (
     <div dir="rtl" className="min-h-screen bg-gray-50">
@@ -273,46 +282,71 @@ export default function ProfilePage() {
 
         {/* היסטוריית תנועות */}
         <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
-          <div className="px-4 py-3 border-b border-gray-200">
+          <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
             <h2 className="font-bold text-base">📜 היסטוריית מטבעות</h2>
+            <span className="text-[10px] text-gray-400">
+              {visibleTransactions.length} מתוך {transactions.length}
+            </span>
           </div>
 
           {transactions.length === 0 ? (
             <div className="p-8 text-center text-gray-400 text-xs">אין תנועות עדיין</div>
           ) : (
-            <ul className="divide-y divide-gray-100">
-              {transactions.map((t) => (
-                <li
-                  key={t.id}
-                  className="px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors"
-                >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-lg shrink-0">{TX_ICONS[t.type] ?? "•"}</span>
-                    <div className="min-w-0">
-                      <div className="font-medium text-black text-xs truncate">
-                        {TX_LABELS[t.type] ?? t.type}
+            <>
+              <ul className="divide-y divide-gray-100">
+                {visibleTransactions.map((t) => (
+                  <li
+                    key={t.id}
+                    className="px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-lg shrink-0">{TX_ICONS[t.type] ?? "•"}</span>
+                      <div className="min-w-0">
+                        <div className="font-medium text-black text-xs truncate">
+                          {TX_LABELS[t.type] ?? t.type}
+                        </div>
+                        {t.note && (
+                          <div className="text-[10px] text-gray-500 truncate">{t.note}</div>
+                        )}
                       </div>
-                      {t.note && (
-                        <div className="text-[10px] text-gray-500 truncate">{t.note}</div>
-                      )}
                     </div>
-                  </div>
-                  <div className="flex flex-col items-end shrink-0 ml-2">
-                    <span
-                      className={`font-bold text-xs ${
-                        t.amount >= 0 ? "text-black" : "text-gray-500"
-                      }`}
-                    >
-                      {t.amount >= 0 ? "+" : ""}
-                      {t.amount}
-                    </span>
-                    <span className="text-[10px] text-gray-400">
-                      {new Date(t.createdAt).toLocaleDateString("he-IL")}
-                    </span>
-                  </div>
-                </li>
-              ))}
-            </ul>
+                    <div className="flex flex-col items-end shrink-0 ml-2">
+                      <span
+                        className={`font-bold text-xs ${
+                          t.amount >= 0 ? "text-black" : "text-gray-500"
+                        }`}
+                      >
+                        {t.amount >= 0 ? "+" : ""}
+                        {t.amount}
+                      </span>
+                      <span className="text-[10px] text-gray-400">
+                        {new Date(t.createdAt).toLocaleDateString("he-IL")}
+                      </span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+
+              {/* 🔥 כפתורי הצג עוד / הצג פחות */}
+              <div className="px-4 py-3 border-t border-gray-200 flex flex-col gap-2">
+                {hasMore && (
+                  <button
+                    onClick={() => setVisibleTxCount((c) => c + LOAD_MORE_STEP)}
+                    className="w-full bg-gray-50 text-black border border-gray-200 rounded-xl py-2.5 text-xs font-bold hover:bg-gray-100 transition-colors"
+                  >
+                    הצג עוד ({Math.min(LOAD_MORE_STEP, transactions.length - visibleTxCount)})
+                  </button>
+                )}
+                {canCollapse && (
+                  <button
+                    onClick={() => setVisibleTxCount(INITIAL_TX_COUNT)}
+                    className="w-full text-gray-500 text-[10px] hover:text-black transition-colors underline-offset-4 hover:underline"
+                  >
+                    הצג פחות
+                  </button>
+                )}
+              </div>
+            </>
           )}
         </div>
 
