@@ -5,6 +5,8 @@
  *
  * הייצוג במסד הנתונים הוא מערך שטוח באורך 20, לפי סדר: עמודה אחר עמודה
  * (numbers[0..3] = B, numbers[4..7] = I, numbers[8..11] = N, numbers[12..15] = G, numbers[16..19] = O)
+ *
+ * כל עמודה ממוינת בסדר עולה (הקטן ביותר למעלה) כדי להקל על איתור מספרים בכרטיס.
  */
 
 export const COLUMN_RANGES: Array<[number, number]> = [
@@ -34,7 +36,11 @@ export function generateTicketNumbers(): number[] {
     const pool: number[] = [];
     for (let n = min; n <= max; n++) pool.push(n);
     const shuffled = fisherYatesShuffle(pool);
-    numbers.push(...shuffled.slice(0, NUMBERS_PER_COLUMN));
+    // 🔥 מיין את 4 המספרים בסדר עולה (הקטן ביותר ראשון)
+    const picked = shuffled
+      .slice(0, NUMBERS_PER_COLUMN)
+      .sort((a, b) => a - b);
+    numbers.push(...picked);
   }
   return numbers;
 }
