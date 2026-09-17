@@ -12,13 +12,9 @@ const bodySchema = z.object({
 /**
  * POST /api/admin/games/:gameId/distribute
  *
- * מחלק את פרס השורה או הבינגו המלא לזוכים שנצברו עד כה ב-Game.lineWinnerUserIds /
- * bingoWinnerUserIds. האדמין מפעיל זאת אחרי שנתן חלון סביר לזוכים "בו-זמנית" להכריז
- * (ר' הערה ב-/claim). מחשב לפי האפיון:
- *   קופה = ticketPrice × מספר כרטיסים שנמכרו למשחק
- *   עמלת אדמין = 15% מהקופה (לא מחולקת, פשוט לא יוצאת משם)
- *   פרס שורה = 10% מהקופה, מתחלק שווה בשווה בין זוכי השורה
- *   פרס בינגו מלא = 75% מהקופה (85% - 10%), מתחלק שווה בשווה בין זוכי הבינגו
+ * מחלק את פרס השורה או הבינגו המלא לזוכים.
+ * אם הסכום לזוכה הוא 0 (קופה קטנה מדי או יותר מדי זוכים) — מדלגים על החלוקה
+ * אבל עדיין מסמנים את הפרס כ"חולק" כדי למנוע ניסיונות חוזרים.
  */
 export async function POST(req: Request, { params }: { params: Promise<{ gameId: string }> }) {
   const session = await requireAdmin();
@@ -48,14 +44,17 @@ export async function POST(req: Request, { params }: { params: Promise<{ gameId:
     const linePrizeTotal = Math.floor(pot * 0.1);
     const perWinner = Math.floor(linePrizeTotal / game.lineWinnerUserIds.length);
 
-    for (const winnerId of game.lineWinnerUserIds) {
-      await creditCoins({
-        userId: winnerId,
-        amount: perWinner,
-        type: CoinTransactionType.WIN,
-        note: `זכייה בשורה (משחק ${gameId})`,
-        gameId,
-      });
+    // 🔥 דלג על חלוקה אם הסכום 0
+    if (perWinner > 0) {
+      for (const winnerId of game.lineWinnerUserIds) {
+        await creditCoins({
+          userId: winnerId,
+          amount: perWinner,
+          type: CoinTransactionType.WIN,
+          note: `זכייה בשורה (משחק ${gameId})`,
+          gameId,
+        });
+      }
     }
 
     await prisma.game.update({ where: { id: gameId }, data: { lineDistributed: true } });
@@ -65,6 +64,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ gameId:
       linePrizeTotal,
       perWinner,
       winners: game.lineWinnerUserIds,
+      skipped: perWinner === 0,
     });
   }
 
@@ -76,17 +76,20 @@ export async function POST(req: Request, { params }: { params: Promise<{ gameId:
     return NextResponse.json({ error: "אין עדיין זוכי בינגו רשומים" }, { status: 400 });
   }
 
-  const bingoPrizeTotal = Math.floor(pot * 0.75); // 85% - 10% ששולם לשורה
+  const bingoPrizeTotal = Math.floor(pot * 0.75);
   const perWinner = Math.floor(bingoPrizeTotal / game.bingoWinnerUserIds.length);
 
-  for (const winnerId of game.bingoWinnerUserIds) {
-    await creditCoins({
-      userId: winnerId,
-      amount: perWinner,
-      type: CoinTransactionType.WIN,
-      note: `זכייה בבינגו מלא (משחק ${gameId})`,
-      gameId,
-    });
+  // 🔥 דלג על חלוקה אם הסכום 0
+  if (perWinner > 0) {
+    for (const winnerId of game.bingoWinnerUserIds) {
+      await creditCoins({
+        userId: winnerId,
+        amount: perWinner,
+        type: CoinTransactionType.WIN,
+        note: `זכייה בבינגו מלא (משחק ${gameId})`,
+        gameId,
+      });
+    }
   }
 
   await prisma.game.update({
@@ -100,5 +103,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ gameId:
     bingoPrizeTotal,
     perWinner,
     winners: game.bingoWinnerUserIds,
+    skipped: perWinner === 0,
   });
 }
