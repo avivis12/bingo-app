@@ -1,0 +1,159 @@
+// Prisma schema — מערכת בינגו
+// ---------------------------------------------
+// מבוסס על מסמך האפיון: משתמשים, ארנק מטבעות (Ledger),
+// בקשות החזר, משחקים, כרטיסים וטיפים.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  PLAYER
+  ADMIN
+}
+
+enum CoinTransactionType {
+  ADMIN_CREDIT // האדמין הזין מטבעות למשתמש
+  ADMIN_DEBIT // האדמין הפחית מטבעות (תיקון/אישור החזר)
+  SPEND // רכישת כרטיס
+  WIN // זכייה (שורה/בינגו)
+  TIP // טיפ שניתן ע"י זוכה
+  REFUND // אישור בקשת החזר (ראה גם ADMIN_DEBIT — REFUND הוא הסיווג הייעודי)
+}
+
+enum RefundStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum GameStatus {
+  DRAFT // נוצר ע"י אדמין, טרם נפתחה מכירה
+  SELLING // מכירת כרטיסים פתוחה
+  COUNTDOWN // טיימר רץ, מכירה נעולה
+  LIVE // המשחק פעיל, כדורים נשלפים
+  FINISHED
+  CANCELLED
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  phone        String
+  passwordHash String // כל משתמש נרשם עם אימייל+סיסמה בלבד (אין יותר Google OAuth)
+  role         Role     @default(PLAYER)
+  coinsBalance Int      @default(0)
+  isBlocked    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  coinTransactions CoinTransaction[] @relation("UserTransactions")
+  performedTx      CoinTransaction[] @relation("AdminPerformedTransactions")
+  refundRequests   RefundRequest[]
+  tickets          Ticket[]
+  tipsGiven        Tip[]
+  resetTokens      PasswordResetToken[]
+
+  @@index([phone])
+  @@index([name])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// יומן תנועות מטבעות — מקור האמת ליתרה (ניתן לשחזר יתרה מסכימת התנועות)
+model CoinTransaction {
+  id        String              @id @default(cuid())
+  userId    String
+  type      CoinTransactionType
+  amount    Int // חיובי = זיכוי, שלילי = חיוב
+  note      String?
+  gameId    String?
+  createdAt DateTime            @default(now())
+
+  performedByAdminId String?
+
+  user            User  @relation("UserTransactions", fields: [userId], references: [id])
+  performedByAdmin User? @relation("AdminPerformedTransactions", fields: [performedByAdminId], references: [id])
+  game            Game? @relation(fields: [gameId], references: [id])
+
+  @@index([userId])
+  @@index([gameId])
+}
+
+model RefundRequest {
+  id              String       @id @default(cuid())
+  userId          String
+  amountRequested Int
+  status          RefundStatus @default(PENDING)
+  userNote        String?
+  adminNote       String?
+  createdAt       DateTime     @default(now())
+  resolvedAt      DateTime?
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([status])
+}
+
+model Game {
+  id            String     @id @default(cuid())
+  ticketPrice   Int
+  maxTicketsPerUser Int    @default(4)
+  status        GameStatus @default(DRAFT)
+  countdownSeconds Int?
+  countdownEndsAt  DateTime?
+  ballsDrawn    Int[]      @default([]) // סדר הכדורים שנשלפו עד כה
+  startedAt     DateTime?
+  endedAt       DateTime?
+
+  lineWinnerUserIds  String[] @default([])
+  bingoWinnerUserIds String[] @default([])
+  lineDistributed    Boolean  @default(false)
+  bingoDistributed   Boolean  @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tickets      Ticket[]
+  transactions CoinTransaction[]
+  tips         Tip[]
+}
+
+model Ticket {
+  id        String   @id @default(cuid())
+  gameId    String
+  userId    String
+  // 5 עמודות (B,I,N,G,O) × 4 שורות = 20 מספרים, נשמר כמטריצה שטוחה בגודל 20
+  numbers   Int[]
+  createdAt DateTime @default(now())
+
+  game Game @relation(fields: [gameId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([gameId, userId])
+}
+
+model Tip {
+  id         String   @id @default(cuid())
+  gameId     String
+  fromUserId String
+  amount     Int
+  createdAt  DateTime @default(now())
+
+  game     Game @relation(fields: [gameId], references: [id])
+  fromUser User @relation(fields: [fromUserId], references: [id])
+}
