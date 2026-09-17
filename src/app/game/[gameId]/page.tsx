@@ -59,6 +59,10 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
   }>({ open: false, prizeType: "LINE", amount: 0, winnersCount: 1 });
 
   const [markedNumbers, setMarkedNumbers] = useState<Record<string, number[]>>({});
+  const [showBoard, setShowBoard] = useState(false);
+
+  // 🔥 מצב סימון אוטומטי לכל כרטיס
+  const [autoMark, setAutoMark] = useState<Record<string, boolean>>({});
 
   const showAnnouncement = useCallback(
     (msg: string, type: "info" | "success" | "error" = "info", duration = 8000) => {
@@ -137,6 +141,9 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
   function toggleMark(ticketId: string, num: number) {
     if (!game) return;
     if (!drawnSet.has(num)) return;
+    // 🔥 אם הכרטיס במצב אוטומטי – לא מאפשר סימון ידני
+    if (autoMark[ticketId]) return;
+
     setMarkedNumbers((prev) => {
       const current = prev[ticketId] ?? [];
       const isMarked = current.includes(num);
@@ -147,20 +154,30 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
     });
   }
 
-  function autoMarkTicket(ticketId: string) {
-    if (!game) return;
-    const ticket = myTickets.find((t) => t.id === ticketId);
-    if (!ticket) return;
-
+  // 🔥 סימון אוטומטי — פועל כשהמשתמש מפעיל את המתג
+  useEffect(() => {
+    if (!game || game.status !== "LIVE") return;
     setMarkedNumbers((prev) => {
-      const current = prev[ticketId] ?? [];
-      const currentSet = new Set(current);
-      for (const num of ticket.numbers) {
-        if (drawnSet.has(num)) currentSet.add(num);
+      const next = { ...prev };
+      let changed = false;
+      for (const ticket of myTickets) {
+        if (!autoMark[ticket.id]) continue;
+        const currentSet = new Set(next[ticket.id] ?? []);
+        let ticketChanged = false;
+        for (const num of ticket.numbers) {
+          if (drawnSet.has(num) && !currentSet.has(num)) {
+            currentSet.add(num);
+            ticketChanged = true;
+          }
+        }
+        if (ticketChanged) {
+          next[ticket.id] = Array.from(currentSet);
+          changed = true;
+        }
       }
-      return { ...prev, [ticketId]: Array.from(currentSet) };
+      return changed ? next : prev;
     });
-  }
+  }, [game?.ballsDrawn, autoMark, myTickets, drawnSet, game]);
 
   async function handlePurchase() {
     setError(null);
@@ -259,7 +276,7 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
 
   return (
     <div dir="rtl" className="min-h-screen bg-gray-50">
-      <div className="max-w-3xl mx-auto p-4 md:p-6">
+      <div className="max-w-3xl mx-auto p-3 sm:p-4 md:p-6">
         {announcement && (
           <div
             className={`fixed top-3 inset-x-3 z-50 ${announcementBg} ${announcementText} font-bold text-center rounded-xl py-3 shadow-lg`}
@@ -268,15 +285,15 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
           </div>
         )}
 
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-3">
           <Link
             href="/profile"
-            className="text-sm text-gray-500 hover:text-black transition-colors"
+            className="text-xs sm:text-sm text-gray-500 hover:text-black transition-colors"
           >
             ← הפרופיל שלי
           </Link>
           <span
-            className={`text-xs font-bold rounded-full px-3 py-1 ${
+            className={`text-[10px] sm:text-xs font-bold rounded-full px-2 sm:px-3 py-1 ${
               game.status === "LIVE"
                 ? "bg-black text-white"
                 : game.status === "SELLING" || game.status === "COUNTDOWN"
@@ -299,94 +316,84 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
         </div>
 
         {isFinished && (
-          <div className="bg-yellow-400 text-gray-900 rounded-2xl p-5 text-center mb-4">
-            <h2 className="text-xl font-bold mb-3">
+          <div className="bg-yellow-400 text-gray-900 rounded-2xl p-4 text-center mb-3">
+            <h2 className="text-lg font-bold mb-2">
               {game.status === "CANCELLED" ? "המשחק בוטל" : "🎉 המשחק הסתיים!"}
             </h2>
             <Link
               href="/"
-              className="inline-block bg-black text-white font-bold rounded-xl px-6 py-3 hover:bg-gray-800 transition-colors"
+              className="inline-block bg-black text-white font-bold rounded-xl px-5 py-2 text-sm hover:bg-gray-800 transition-colors"
             >
               ← חזרה לדף הבית
             </Link>
           </div>
         )}
 
-        <div className="bg-white border border-gray-200 rounded-2xl p-4 mb-4">
-          <div className="flex justify-between text-xs text-gray-500 mb-3">
+        <div className="bg-white border border-gray-200 rounded-2xl p-3 sm:p-4 mb-3">
+          <div className="flex justify-between text-[10px] sm:text-xs text-gray-500 mb-2">
             <span>👥 משתתפים: {transparency.playerCount}</span>
             <span>🎫 כרטיסים: {transparency.ticketCount}</span>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 text-center">
-              <div className="text-xs text-gray-500 font-semibold mb-1">📏 פרס שורה</div>
-              <div className="text-2xl font-extrabold text-black">
+          <div className="grid grid-cols-2 gap-2">
+            <div className="bg-gray-50 border border-gray-200 rounded-xl p-2 text-center">
+              <div className="text-[10px] sm:text-xs text-gray-500 font-semibold mb-0.5">📏 פרס שורה</div>
+              <div className="text-xl sm:text-2xl font-extrabold text-black">
                 {transparency.linePrizePerWinner}
               </div>
-              <div className="text-xs text-gray-400 mt-0.5">
-                {transparency.lineWinnersCount > 0
-                  ? `מתחלק בין ${transparency.lineWinnersCount}`
-                  : "מטבעות"}
-              </div>
             </div>
-            <div className="bg-black rounded-xl p-3 text-center">
-              <div className="text-xs text-yellow-400 font-semibold mb-1">🏆 פרס בינגו</div>
-              <div className="text-2xl font-extrabold text-white">
+            <div className="bg-black rounded-xl p-2 text-center">
+              <div className="text-[10px] sm:text-xs text-yellow-400 font-semibold mb-0.5">🏆 פרס בינגו</div>
+              <div className="text-xl sm:text-2xl font-extrabold text-white">
                 {transparency.bingoPrizePerWinner}
-              </div>
-              <div className="text-xs text-gray-400 mt-0.5">
-                {transparency.bingoWinnersCount > 0
-                  ? `מתחלק בין ${transparency.bingoWinnersCount}`
-                  : "מטבעות"}
               </div>
             </div>
           </div>
         </div>
 
         {saleOpen && (
-          <div className="bg-white border border-gray-200 rounded-2xl p-5 mb-4">
-            <div className="flex justify-between mb-4 text-sm text-black">
+          <div className="bg-white border border-gray-200 rounded-2xl p-4 mb-3">
+            <div className="flex justify-between mb-3 text-xs sm:text-sm text-black">
               <span>
-                מחיר לכרטיס: <b>{game.ticketPrice}</b> מטבעות
+                מחיר לכרטיס: <b>{game.ticketPrice}</b>
               </span>
               {balance !== null && (
                 <span>
-                  היתרה שלך: <b>{balance}</b> 💵
+                  היתרה: <b>{balance}</b> 💵
                 </span>
               )}
             </div>
 
             {countdownRemaining !== null && (
-              <div className="text-center text-4xl font-extrabold text-black mb-4 tabular-nums">
+              <div className="text-center text-3xl sm:text-4xl font-extrabold text-black mb-3 tabular-nums">
                 {Math.floor(countdownRemaining / 60)}:
                 {String(countdownRemaining % 60).padStart(2, "0")}
               </div>
             )}
 
-            <div className="flex items-center justify-center gap-4 mb-4">
+            <div className="flex items-center justify-center gap-3 mb-3">
               <button
                 onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                className="w-10 h-10 rounded-full border border-gray-300 hover:bg-gray-50 font-bold text-lg transition-colors"
+                className="w-9 h-9 rounded-full border border-gray-300 hover:bg-gray-50 font-bold text-base transition-colors"
               >
                 −
               </button>
-              <span className="text-2xl font-bold w-10 text-center">{quantity}</span>
+              <span className="text-xl font-bold w-8 text-center">{quantity}</span>
               <button
                 onClick={() => setQuantity((q) => Math.min(game.maxTicketsPerUser, q + 1))}
-                className="w-10 h-10 rounded-full border border-gray-300 hover:bg-gray-50 font-bold text-lg transition-colors"
+                className="w-9 h-9 rounded-full border border-gray-300 hover:bg-gray-50 font-bold text-base transition-colors"
               >
                 +
               </button>
             </div>
 
-            <div className="text-center text-sm text-gray-500 mb-4">
-              סה״כ לתשלום: <b className="text-black">{quantity * game.ticketPrice}</b> מטבעות
+            <div className="text-center text-xs text-gray-500 mb-3">
+              סה״כ: <b className="text-black">{quantity * game.ticketPrice}</b> מטבעות
             </div>
 
             <button
               onClick={handlePurchase}
               disabled={purchasing || myTickets.length >= game.maxTicketsPerUser}
-              className="w-full bg-black text-white font-bold rounded-xl py-3 hover:bg-gray-800 disabled:opacity-50 transition-colors"
+              className="w-full bg-black text-white font-bold rounded-xl py-2.5 text-sm hover:bg-gray-800 disabled:opacity-50 transition-colors"
             >
               {myTickets.length >= game.maxTicketsPerUser
                 ? "הגעת למכסת הכרטיסים"
@@ -394,47 +401,67 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
                 ? "קונה..."
                 : "קנה"}
             </button>
-            {error && <p className="text-red-600 text-sm mt-3 text-center">{error}</p>}
+            {error && <p className="text-red-600 text-xs mt-2 text-center">{error}</p>}
           </div>
         )}
 
-        {/* כדור מרכזי — רק מספר, בלי אות */}
         {game.status === "LIVE" && (
-          <div className="text-center mb-6">
-            <div className="text-sm text-gray-500 mb-2">הכדור האחרון שנשלף</div>
-            <div className="inline-flex items-center justify-center w-28 h-28 rounded-full bg-black text-white text-4xl font-extrabold shadow-lg">
-              {lastBall ?? "—"}
+          <div className="sticky top-0 z-20 -mx-3 px-3 py-2 sm:py-0 sm:mx-0 sm:px-0 sm:relative sm:top-auto bg-gray-50 sm:bg-transparent mb-3 sm:mb-4">
+            <div className="text-center">
+              <div className="text-[10px] sm:text-xs text-gray-500 mb-1">הכדור האחרון</div>
+              <div className="inline-flex items-center justify-center w-20 h-20 sm:w-28 sm:h-28 rounded-full bg-black text-white text-3xl sm:text-4xl font-extrabold shadow-lg">
+                {lastBall ?? "—"}
+              </div>
             </div>
           </div>
         )}
 
         {game.status === "LIVE" && (
-          <div className="bg-white border border-gray-200 rounded-2xl p-4 mb-4">
-            <div className="text-xs text-gray-500 text-center mb-3 font-medium">לוח הכדורים</div>
-            <div className="grid grid-cols-10 gap-1 text-xs">
-              {Array.from({ length: TOTAL_BALLS }, (_, i) => i + 1).map((n) => (
-                <div
-                  key={n}
-                  className={[
-                    "aspect-square flex items-center justify-center rounded font-bold",
-                    drawnSet.has(n) ? "bg-black text-white" : "bg-gray-100 text-gray-400",
-                  ].join(" ")}
-                >
-                  {n}
-                </div>
-              ))}
+          <>
+            <button
+              onClick={() => setShowBoard((s) => !s)}
+              className="sm:hidden w-full bg-white border border-gray-200 rounded-xl p-3 mb-3 flex items-center justify-between text-xs text-gray-500 font-medium"
+            >
+              <span>לוח הכדורים ({drawnSet.size}/75)</span>
+              <span>{showBoard ? "▲ הסתר" : "▼ הצג"}</span>
+            </button>
+
+            <div
+              className={`bg-white border border-gray-200 rounded-2xl p-3 mb-3 ${
+                showBoard ? "block" : "hidden sm:block"
+              }`}
+            >
+              <div className="hidden sm:block text-xs text-gray-500 text-center mb-2 font-medium">
+                לוח הכדורים
+              </div>
+              <div
+                className="grid gap-0.5 sm:gap-1 text-[9px] sm:text-xs"
+                style={{ gridTemplateColumns: "repeat(15, minmax(0, 1fr))" }}
+              >
+                {Array.from({ length: TOTAL_BALLS }, (_, i) => i + 1).map((n) => (
+                  <div
+                    key={n}
+                    className={[
+                      "aspect-square flex items-center justify-center rounded font-bold",
+                      drawnSet.has(n) ? "bg-black text-white" : "bg-gray-100 text-gray-400",
+                    ].join(" ")}
+                  >
+                    {n}
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+          </>
         )}
 
         {myTickets.length > 0 && (
-          <div className="mb-6">
-            <h2 className="font-bold mb-3 text-center text-black">
+          <div className="mb-4">
+            <h2 className="font-bold mb-2 text-center text-black text-sm sm:text-base">
               הכרטיסים שלי ({myTickets.length})
             </h2>
 
             <div
-              className={`grid gap-3 mx-auto ${
+              className={`grid gap-2 sm:gap-3 mx-auto ${
                 myTickets.length === 1 ? "grid-cols-1 max-w-sm" : "grid-cols-2 max-w-2xl"
               }`}
             >
@@ -442,22 +469,29 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
                 const marks = markedNumbers[ticket.id] ?? [];
                 const hasLine = hasMarkedLine(ticket.numbers, marks);
                 const hasBingo = hasMarkedBingo(ticket.numbers, marks);
+                const isAuto = !!autoMark[ticket.id];
 
                 return (
                   <div
                     key={ticket.id}
-                    className="bg-white border border-gray-200 rounded-2xl p-3"
+                    className="bg-white border border-gray-200 rounded-2xl p-2 sm:p-3"
                   >
-                    <div className="flex items-center justify-between mb-2 px-1">
-                      <span className="text-xs text-gray-500 font-semibold">
+                    <div className="flex items-center justify-between mb-1.5 px-1">
+                      <span className="text-[10px] sm:text-xs text-gray-500 font-semibold">
                         כרטיס {idx + 1}
                       </span>
                       {game.status === "LIVE" && (
                         <button
-                          onClick={() => autoMarkTicket(ticket.id)}
-                          className="text-[11px] text-black font-bold bg-yellow-400 hover:bg-yellow-300 rounded-full px-2 py-0.5 transition-colors"
+                          onClick={() =>
+                            setAutoMark((prev) => ({ ...prev, [ticket.id]: !prev[ticket.id] }))
+                          }
+                          className={`text-[9px] sm:text-[10px] font-bold rounded-full px-2 py-0.5 transition-colors ${
+                            isAuto
+                              ? "bg-green-500 text-white"
+                              : "bg-white text-gray-600 border border-gray-300 hover:bg-gray-50"
+                          }`}
                         >
-                          ✨ סמן אוטומטית
+                          {isAuto ? "✓ אוטומטי" : "ידני"}
                         </button>
                       )}
                     </div>
@@ -468,22 +502,22 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
                       markedNumbers={marks}
                       onToggle={(num) => toggleMark(ticket.id, num)}
                       compact={myTickets.length > 1}
-                      disabled={game.status !== "LIVE"}
+                      disabled={game.status !== "LIVE" || isAuto}
                     />
 
                     {game.status === "LIVE" && (
-                      <div className="flex gap-2 mt-3">
+                      <div className="flex gap-1.5 mt-2">
                         <button
                           onClick={() => handleClaim(ticket.id, "LINE")}
                           disabled={!hasLine || game.lineDistributed}
-                          className="flex-1 bg-black text-white text-xs font-bold rounded-lg py-2 disabled:opacity-30 hover:bg-gray-800 transition-colors"
+                          className="flex-1 bg-black text-white text-[10px] sm:text-xs font-bold rounded-lg py-1.5 disabled:opacity-30 hover:bg-gray-800 transition-colors"
                         >
                           שורה!
                         </button>
                         <button
                           onClick={() => handleClaim(ticket.id, "BINGO")}
                           disabled={!hasBingo || game.bingoDistributed}
-                          className="flex-1 bg-yellow-400 text-black text-xs font-bold rounded-lg py-2 disabled:opacity-30 hover:bg-yellow-300 transition-colors"
+                          className="flex-1 bg-yellow-400 text-black text-[10px] sm:text-xs font-bold rounded-lg py-1.5 disabled:opacity-30 hover:bg-yellow-300 transition-colors"
                         >
                           בינגו!
                         </button>
@@ -494,13 +528,13 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
               })}
             </div>
 
-            {error && <p className="text-red-600 text-sm mt-3 text-center">{error}</p>}
+            {error && <p className="text-red-600 text-xs mt-2 text-center">{error}</p>}
           </div>
         )}
 
         {isWinner && !tipSent && (
-          <div className="bg-white border border-gray-200 rounded-2xl p-5 text-center">
-            <p className="mb-3 font-bold text-black">
+          <div className="bg-white border border-gray-200 rounded-2xl p-4 text-center">
+            <p className="mb-2 font-bold text-black text-sm">
               🎉 מזל טוב על הזכייה! רוצה לתת טיפ?
             </p>
             <input
@@ -508,18 +542,18 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
               placeholder="סכום"
               value={tipAmount}
               onChange={(e) => setTipAmount(e.target.value)}
-              className="border border-gray-300 rounded-xl px-4 py-2 text-black mb-3 w-32 text-center focus:outline-none focus:border-black transition-colors"
+              className="border border-gray-300 rounded-xl px-3 py-2 text-black mb-2 w-28 text-center text-sm focus:outline-none focus:border-black transition-colors"
             />
             <div className="flex gap-2 justify-center">
               <button
                 onClick={handleTip}
-                className="bg-black text-white font-bold rounded-xl px-5 py-2.5 hover:bg-gray-800 transition-colors"
+                className="bg-black text-white font-bold rounded-xl px-4 py-2 text-sm hover:bg-gray-800 transition-colors"
               >
                 שלח טיפ
               </button>
               <button
                 onClick={() => setTipSent(true)}
-                className="bg-white text-black border border-gray-300 font-bold rounded-xl px-5 py-2.5 hover:bg-gray-50 transition-colors"
+                className="bg-white text-black border border-gray-300 font-bold rounded-xl px-4 py-2 text-sm hover:bg-gray-50 transition-colors"
               >
                 לא תודה
               </button>
@@ -527,10 +561,10 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
           </div>
         )}
 
-        <div className="mt-8 text-center">
+        <div className="mt-6 text-center">
           <Link
             href="/profile"
-            className="inline-block text-sm text-gray-500 hover:text-black underline-offset-4 hover:underline transition-colors"
+            className="inline-block text-xs text-gray-500 hover:text-black underline-offset-4 hover:underline transition-colors"
           >
             ← חזרה לפרופיל
           </Link>

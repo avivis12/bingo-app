@@ -36,23 +36,35 @@ export function TicketGrid({
           const isMarked = markedSet.has(num);
           const isClickable = !disabled && isDrawn && onToggle;
 
+          // 3 מצבים:
+          // 1. מסומן (marked)      → רקע ירוק, כיתוב לבן
+          // 2. נשלף (drawn)        → רקע לבן, כיתוב שחור, מסגרת אפורה, לחיץ (hover מסגרת שחורה)
+          // 3. לא נשלף (not drawn) → רקע לבן, כיתוב שחור, מסגרת אפורה בהירה, לא לחיץ
+          let cellClass =
+            "aspect-square rounded flex items-center justify-center font-bold border-2 transition-all";
+
+          if (isMarked) {
+            cellClass += " bg-green-500 text-white border-green-600 shadow-md";
+          } else if (isDrawn) {
+            cellClass +=
+              " bg-white text-black border-gray-300 hover:border-black active:scale-95 cursor-pointer";
+          } else {
+            cellClass += " bg-white text-black border-gray-200 cursor-not-allowed";
+          }
+
+          if (compact) {
+            cellClass += " text-xs sm:text-sm rounded-sm sm:rounded";
+          } else {
+            cellClass += " text-sm sm:text-lg rounded-lg";
+          }
+
           return (
             <button
               type="button"
               key={`${colIdx}-${row}`}
               onClick={() => isClickable && onToggle(num)}
               disabled={!isClickable}
-              className={[
-                "aspect-square rounded flex items-center justify-center font-semibold border transition-all",
-                compact
-                  ? "text-xs sm:text-sm rounded-sm sm:rounded"
-                  : "text-sm sm:text-lg rounded-lg",
-                isMarked
-                  ? "bg-yellow-400 text-gray-900 border-yellow-300 scale-95"
-                  : isDrawn
-                  ? "bg-gray-700 text-white border-gray-500 cursor-pointer hover:bg-gray-600 active:scale-95"
-                  : "bg-gray-800 text-gray-500 border-gray-700 cursor-not-allowed",
-              ].join(" ")}
+              className={cellClass}
             >
               {num}
             </button>

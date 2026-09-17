@@ -110,65 +110,52 @@ export default function ProfilePage() {
     .join("")
     .toUpperCase();
 
-  const stats = {
-    totalTx: transactions.length,
-    wins: transactions.filter((t) => t.type === "WIN").length,
-    spent: Math.abs(
-      transactions
-        .filter((t) => t.type === "SPEND")
-        .reduce((sum, t) => sum + t.amount, 0)
-    ),
-    earned: transactions
-      .filter((t) => t.type === "WIN")
-      .reduce((sum, t) => sum + t.amount, 0),
-  };
-
   return (
     <div dir="rtl" className="min-h-screen bg-gray-50">
-      <div className="max-w-3xl mx-auto p-4 md:p-8">
+      <div className="max-w-2xl mx-auto p-3 sm:p-5">
         {/* כרטיס פרופיל עליון */}
-        <div className="bg-white border border-gray-200 rounded-2xl p-6 mb-6">
-          <div className="flex items-center gap-4">
+        <div className="bg-white border border-gray-200 rounded-2xl p-4 mb-4">
+          <div className="flex items-center gap-3">
             {/* אווטאר */}
-            <div className="w-20 h-20 rounded-full bg-black text-white flex items-center justify-center text-2xl font-bold shrink-0">
+            <div className="w-14 h-14 rounded-full bg-black text-white flex items-center justify-center text-lg font-bold shrink-0">
               {initials || "?"}
             </div>
 
             {/* פרטים */}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-2xl font-bold text-black truncate">{me.name}</h1>
+                <h1 className="text-lg font-bold text-black truncate">{me.name}</h1>
                 {isAdmin && (
-                  <span className="bg-black text-white text-xs font-bold rounded px-2 py-0.5">
+                  <span className="bg-black text-white text-[10px] font-bold rounded px-1.5 py-0.5">
                     ADMIN
                   </span>
                 )}
               </div>
-              <p className="text-sm text-gray-500 mt-1">{me.email}</p>
-              <p className="text-sm text-gray-500">{me.phone}</p>
+              <p className="text-xs text-gray-500 mt-0.5 truncate">{me.email}</p>
+              <p className="text-xs text-gray-500">{me.phone}</p>
             </div>
 
             {/* התנתקות */}
             <button
               onClick={() => signOut()}
-              className="text-sm text-gray-500 hover:text-black transition-colors underline-offset-4 hover:underline shrink-0"
+              className="text-xs text-gray-500 hover:text-black transition-colors underline-offset-4 hover:underline shrink-0"
             >
               התנתקות
             </button>
           </div>
 
           {/* קישורים מהירים */}
-          <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-gray-200">
+          <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-gray-200">
             <Link
               href="/"
-              className="bg-white text-black border border-gray-300 rounded-xl px-4 py-2 text-sm font-medium hover:bg-gray-50 transition-colors"
+              className="bg-white text-black border border-gray-300 rounded-xl px-3 py-1.5 text-xs font-medium hover:bg-gray-50 transition-colors"
             >
               ← חזרה למשחקים
             </Link>
             {isAdmin && (
               <Link
                 href="/admin"
-                className="bg-black text-white rounded-xl px-4 py-2 text-sm font-medium hover:bg-gray-800 transition-colors"
+                className="bg-black text-white rounded-xl px-3 py-1.5 text-xs font-medium hover:bg-gray-800 transition-colors"
               >
                 🔧 ממשק ניהול
               </Link>
@@ -176,26 +163,20 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* יתרת מטבעות + סטטיסטיקות */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-          <div className="bg-black text-white rounded-2xl p-4 col-span-2 md:col-span-1">
-            <div className="text-xs text-gray-400 mb-1">יתרת מטבעות</div>
-            <div className="text-3xl font-extrabold">{me.coinsBalance}</div>
-            <div className="text-xs text-gray-400 mt-1">💵</div>
-          </div>
-          <StatBox label="עסקאות" value={stats.totalTx} icon="📊" />
-          <StatBox label="זכיות" value={stats.wins} icon="🏆" />
-          <StatBox label="סה״כ הוצא" value={stats.spent} icon="💸" />
+        {/* יתרת מטבעות */}
+        <div className="bg-black text-white rounded-2xl p-4 mb-4 text-center">
+          <div className="text-xs text-gray-400 mb-1">יתרת מטבעות</div>
+          <div className="text-3xl font-extrabold">{me.coinsBalance} 💵</div>
         </div>
 
         {/* בקשת החזר */}
-        <div className="bg-white border border-gray-200 rounded-2xl p-6 mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-bold text-lg">💰 בקשת החזר</h2>
+        <div className="bg-white border border-gray-200 rounded-2xl p-4 mb-4">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-bold text-base">💰 בקשת החזר</h2>
             {!showRefundForm && (
               <button
                 onClick={() => setShowRefundForm(true)}
-                className="bg-black text-white rounded-xl px-4 py-2 text-sm font-medium hover:bg-gray-800 transition-colors"
+                className="bg-black text-white rounded-xl px-3 py-1.5 text-xs font-medium hover:bg-gray-800 transition-colors"
               >
                 + בקשה חדשה
               </button>
@@ -203,9 +184,9 @@ export default function ProfilePage() {
           </div>
 
           {showRefundForm && (
-            <div className="space-y-3 mb-4">
+            <div className="space-y-2 mb-3">
               <div>
-                <label className="block text-sm text-gray-500 mb-1">
+                <label className="block text-xs text-gray-500 mb-1">
                   כמות להחזר (עד {me.coinsBalance} מטבעות)
                 </label>
                 <input
@@ -214,23 +195,23 @@ export default function ProfilePage() {
                   value={refundAmount}
                   onChange={(e) => setRefundAmount(e.target.value)}
                   max={me.coinsBalance}
-                  className="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-black focus:outline-none focus:border-black transition-colors"
+                  className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm text-black focus:outline-none focus:border-black transition-colors"
                 />
               </div>
               <div>
-                <label className="block text-sm text-gray-500 mb-1">הערה (אופציונלי)</label>
+                <label className="block text-xs text-gray-500 mb-1">הערה (אופציונלי)</label>
                 <input
                   placeholder="למשל: שולם בביט"
                   value={refundNote}
                   onChange={(e) => setRefundNote(e.target.value)}
-                  className="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-black focus:outline-none focus:border-black transition-colors"
+                  className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm text-black focus:outline-none focus:border-black transition-colors"
                 />
               </div>
               <div className="flex gap-2">
                 <button
                   onClick={submitRefund}
                   disabled={!refundAmount || submitting}
-                  className="bg-black text-white font-semibold rounded-xl px-5 py-2.5 hover:bg-gray-800 disabled:opacity-50 transition-colors"
+                  className="bg-black text-white font-semibold rounded-xl px-4 py-2 text-sm hover:bg-gray-800 disabled:opacity-50 transition-colors"
                 >
                   {submitting ? "שולח..." : "שלח בקשה"}
                 </button>
@@ -240,7 +221,7 @@ export default function ProfilePage() {
                     setRefundAmount("");
                     setRefundNote("");
                   }}
-                  className="bg-white text-black border border-gray-300 rounded-xl px-5 py-2.5 font-medium hover:bg-gray-50 transition-colors"
+                  className="bg-white text-black border border-gray-300 rounded-xl px-4 py-2 text-sm font-medium hover:bg-gray-50 transition-colors"
                 >
                   ביטול
                 </button>
@@ -250,7 +231,7 @@ export default function ProfilePage() {
 
           {status && (
             <div
-              className={`text-sm rounded-xl px-4 py-3 mb-4 ${
+              className={`text-xs rounded-xl px-3 py-2 mb-3 ${
                 status.type === "ok"
                   ? "bg-gray-50 border border-gray-200 text-black"
                   : "bg-red-50 border border-red-200 text-red-700"
@@ -265,16 +246,16 @@ export default function ProfilePage() {
               {refunds.map((r) => (
                 <li
                   key={r.id}
-                  className="flex items-center justify-between bg-gray-50 rounded-xl px-4 py-3"
+                  className="flex items-center justify-between bg-gray-50 rounded-xl px-3 py-2"
                 >
-                  <div className="flex items-center gap-3">
-                    <span className="font-bold text-black">{r.amountRequested} 💵</span>
-                    <span className="text-xs text-gray-500">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-black text-sm">{r.amountRequested} 💵</span>
+                    <span className="text-[10px] text-gray-500">
                       {new Date(r.createdAt).toLocaleDateString("he-IL")}
                     </span>
                   </div>
                   <span
-                    className={`text-xs font-semibold rounded-full px-3 py-1 ${
+                    className={`text-[10px] font-semibold rounded-full px-2 py-0.5 ${
                       REFUND_STATUS_STYLES[r.status] ?? "bg-gray-100 text-gray-500"
                     }`}
                   >
@@ -285,47 +266,47 @@ export default function ProfilePage() {
             </ul>
           ) : (
             !showRefundForm && (
-              <p className="text-sm text-gray-400 text-center py-4">אין בקשות החזר</p>
+              <p className="text-xs text-gray-400 text-center py-3">אין בקשות החזר</p>
             )
           )}
         </div>
 
         {/* היסטוריית תנועות */}
         <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="font-bold text-lg">📜 היסטוריית מטבעות</h2>
+          <div className="px-4 py-3 border-b border-gray-200">
+            <h2 className="font-bold text-base">📜 היסטוריית מטבעות</h2>
           </div>
 
           {transactions.length === 0 ? (
-            <div className="p-12 text-center text-gray-400 text-sm">אין תנועות עדיין</div>
+            <div className="p-8 text-center text-gray-400 text-xs">אין תנועות עדיין</div>
           ) : (
             <ul className="divide-y divide-gray-100">
               {transactions.map((t) => (
                 <li
                   key={t.id}
-                  className="px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
+                  className="px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors"
                 >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <span className="text-xl shrink-0">{TX_ICONS[t.type] ?? "•"}</span>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-lg shrink-0">{TX_ICONS[t.type] ?? "•"}</span>
                     <div className="min-w-0">
-                      <div className="font-medium text-black text-sm truncate">
+                      <div className="font-medium text-black text-xs truncate">
                         {TX_LABELS[t.type] ?? t.type}
                       </div>
                       {t.note && (
-                        <div className="text-xs text-gray-500 truncate">{t.note}</div>
+                        <div className="text-[10px] text-gray-500 truncate">{t.note}</div>
                       )}
                     </div>
                   </div>
-                  <div className="flex flex-col items-end shrink-0 ml-3">
+                  <div className="flex flex-col items-end shrink-0 ml-2">
                     <span
-                      className={`font-bold text-sm ${
+                      className={`font-bold text-xs ${
                         t.amount >= 0 ? "text-black" : "text-gray-500"
                       }`}
                     >
                       {t.amount >= 0 ? "+" : ""}
                       {t.amount}
                     </span>
-                    <span className="text-xs text-gray-400">
+                    <span className="text-[10px] text-gray-400">
                       {new Date(t.createdAt).toLocaleDateString("he-IL")}
                     </span>
                   </div>
@@ -336,20 +317,10 @@ export default function ProfilePage() {
         </div>
 
         {/* פוטר קטן */}
-        <p className="text-center text-xs text-gray-400 mt-6">
+        <p className="text-center text-[10px] text-gray-400 mt-4">
           © {new Date().getFullYear()} בינגו
         </p>
       </div>
-    </div>
-  );
-}
-
-function StatBox({ label, value, icon }: { label: string; value: number; icon: string }) {
-  return (
-    <div className="bg-white border border-gray-200 rounded-2xl p-4">
-      <div className="text-xl mb-1">{icon}</div>
-      <div className="text-2xl font-bold text-black">{value.toLocaleString("he-IL")}</div>
-      <div className="text-xs text-gray-500 mt-0.5">{label}</div>
     </div>
   );
 }
