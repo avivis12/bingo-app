@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
  * GET /api/games/:gameId
  *
  * מקור האמת למצב המשחק — נקרא בטעינה ראשונית של הדף וגם אחרי רענון.
- * מחזיר גם את סכומי הזכייה המדויקים לשורה ולבינגו.
+ * מחזיר גם את סכומי הזכייה המדויקים לשורה ולבינגו, וגם את שמות הזוכים.
  */
 export async function GET(req: Request, { params }: { params: Promise<{ gameId: string }> }) {
   const { gameId } = await params;
@@ -26,13 +26,28 @@ export async function GET(req: Request, { params }: { params: Promise<{ gameId: 
       : Promise.resolve([]),
   ]);
 
+  // 🔥 שמות הזוכים — שורה ובינגו
+  const [lineWinnerUsers, bingoWinnerUsers] = await Promise.all([
+    game.lineWinnerUserIds.length > 0
+      ? prisma.user.findMany({
+          where: { id: { in: game.lineWinnerUserIds } },
+          select: { id: true, name: true },
+        })
+      : Promise.resolve([]),
+    game.bingoWinnerUserIds.length > 0
+      ? prisma.user.findMany({
+          where: { id: { in: game.bingoWinnerUserIds } },
+          select: { id: true, name: true },
+        })
+      : Promise.resolve([]),
+  ]);
+
   const pot = game.ticketPrice * ticketCount;
 
   // חישוב סכומי זכייה — זהים ללוגיקה ב-distribute
   const linePrizeTotal = Math.floor(pot * 0.1); // 10% מהקופה
   const bingoPrizeTotal = Math.floor(pot * 0.75); // 75% מהקופה
 
-  // סכום לכל זוכה (אם יש זוכים — מתחלק; אחרת מציג את הסכום המלא הפוטנציאלי)
   const lineWinnersCount = game.lineWinnerUserIds.length;
   const bingoWinnersCount = game.bingoWinnerUserIds.length;
 
@@ -55,5 +70,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ gameId: 
       bingoWinnersCount,
     },
     myTickets,
+    // 🔥 חדש — שמות הזוכים
+    lineWinners: lineWinnerUsers.map((u) => ({ id: u.id, name: u.name })),
+    bingoWinners: bingoWinnerUsers.map((u) => ({ id: u.id, name: u.name })),
   });
 }

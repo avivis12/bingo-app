@@ -23,6 +23,7 @@ type Game = {
 };
 
 type Ticket = { id: string; numbers: number[]; userId: string };
+type Winner = { id: string; name: string };
 
 export default function GamePage({ params }: { params: Promise<{ gameId: string }> }) {
   const { gameId } = use(params);
@@ -60,9 +61,15 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
 
   const [markedNumbers, setMarkedNumbers] = useState<Record<string, number[]>>({});
   const [showBoard, setShowBoard] = useState(false);
-
-  // 🔥 מצב סימון אוטומטי לכל כרטיס
   const [autoMark, setAutoMark] = useState<Record<string, boolean>>({});
+
+  // 🔥 שמות הזוכים
+  const [lineWinners, setLineWinners] = useState<Winner[]>([]);
+  const [bingoWinners, setBingoWinners] = useState<Winner[]>([]);
+
+  // 🔥 מעקב התראות (כדי לא להציג את אותה הודעה שוב)
+  const [notifiedLineCount, setNotifiedLineCount] = useState(0);
+  const [notifiedBingoCount, setNotifiedBingoCount] = useState(0);
 
   const showAnnouncement = useCallback(
     (msg: string, type: "info" | "success" | "error" = "info", duration = 8000) => {
@@ -80,6 +87,8 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
     setGame(data.game);
     setTransparency(data.transparency);
     setMyTickets(data.myTickets);
+    setLineWinners(data.lineWinners ?? []);
+    setBingoWinners(data.bingoWinners ?? []);
   }, [gameId]);
 
   useEffect(() => {
@@ -111,6 +120,42 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
     return () => clearInterval(id);
   }, []);
 
+  // 🔥 הודעה קופצת כשיש זוכה שורה חדש
+  useEffect(() => {
+    if (lineWinners.length > notifiedLineCount) {
+      const names = lineWinners.map((w) => w.name).join(", ");
+      const prize = transparency.linePrizePerWinner;
+      if (lineWinners.length === 1) {
+        showAnnouncement(`📏 שורה! ${names} זכה ב-${prize} מטבעות`, "success", 15000);
+      } else {
+        showAnnouncement(
+          `📏 שורה! ${names} — ${prize} מטבעות לכל אחד`,
+          "success",
+          15000
+        );
+      }
+      setNotifiedLineCount(lineWinners.length);
+    }
+  }, [lineWinners, notifiedLineCount, transparency.linePrizePerWinner, showAnnouncement]);
+
+  // 🔥 הודעה קופצת כשיש זוכה בינגו חדש
+  useEffect(() => {
+    if (bingoWinners.length > notifiedBingoCount) {
+      const names = bingoWinners.map((w) => w.name).join(", ");
+      const prize = transparency.bingoPrizePerWinner;
+      if (bingoWinners.length === 1) {
+        showAnnouncement(`🏆 בינגו! ${names} זכה ב-${prize} מטבעות!`, "success", 20000);
+      } else {
+        showAnnouncement(
+          `🏆 בינגו! ${names} — ${prize} מטבעות לכל אחד!`,
+          "success",
+          20000
+        );
+      }
+      setNotifiedBingoCount(bingoWinners.length);
+    }
+  }, [bingoWinners, notifiedBingoCount, transparency.bingoPrizePerWinner, showAnnouncement]);
+
   const handleEvent = useCallback(
     (event: GameEvent) => {
       if (event.type === "BALL_DRAWN") {
@@ -121,9 +166,9 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
       } else if (event.type === "ANNOUNCEMENT") {
         showAnnouncement(event.message, "info", 12000);
       } else if (event.type === "LINE_WINNER") {
-        showAnnouncement(`יש שורה! ${event.userName} — בדקו את הכרטיסים שלכם`, "success", 12000);
+        showAnnouncement(`📏 יש שורה! ${event.userName}`, "success", 12000);
       } else if (event.type === "BINGO_WINNER") {
-        showAnnouncement(`יש בינגו! ${event.userName}`, "success", 12000);
+        showAnnouncement(`🏆 יש בינגו! ${event.userName}`, "success", 12000);
       }
     },
     [loadState, showAnnouncement]
@@ -141,7 +186,6 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
   function toggleMark(ticketId: string, num: number) {
     if (!game) return;
     if (!drawnSet.has(num)) return;
-    // 🔥 אם הכרטיס במצב אוטומטי – לא מאפשר סימון ידני
     if (autoMark[ticketId]) return;
 
     setMarkedNumbers((prev) => {
@@ -154,7 +198,6 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
     });
   }
 
-  // 🔥 סימון אוטומטי — פועל כשהמשתמש מפעיל את המתג
   useEffect(() => {
     if (!game || game.status !== "LIVE") return;
     setMarkedNumbers((prev) => {
@@ -315,11 +358,39 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
           </span>
         </div>
 
+        {/* 🏆 באנר זוכה שורה — LIVE */}
+        {game.status === "LIVE" && lineWinners.length > 0 && !game.lineDistributed && (
+          <div className="bg-blue-500 text-white rounded-2xl p-3 text-center mb-3">
+            <p className="text-[10px] sm:text-xs font-bold mb-1">📏 זוכה השורה:</p>
+            <p className="text-sm sm:text-base font-extrabold">
+              {lineWinners.map((w) => w.name).join(", ")}
+            </p>
+            <p className="text-[10px] opacity-90 mt-0.5">
+              {transparency.linePrizePerWinner} מטבעות
+              {lineWinners.length > 1 ? " לכל זוכה" : ""}
+            </p>
+          </div>
+        )}
+
+        {/* 🎉 באנר סיום משחק */}
         {isFinished && (
           <div className="bg-yellow-400 text-gray-900 rounded-2xl p-4 text-center mb-3">
             <h2 className="text-lg font-bold mb-2">
               {game.status === "CANCELLED" ? "המשחק בוטל" : "🎉 המשחק הסתיים!"}
             </h2>
+            {bingoWinners.length > 0 && (
+              <>
+                <div className="text-3xl mb-1">🏆</div>
+                <p className="text-xs font-bold mb-1">הזוכה בבינגו:</p>
+                <p className="text-base font-extrabold mb-2">
+                  {bingoWinners.map((w) => w.name).join(", ")}
+                </p>
+                <p className="text-xs mb-3">
+                  {transparency.bingoPrizePerWinner} מטבעות
+                  {bingoWinners.length > 1 ? " לכל זוכה" : ""}
+                </p>
+              </>
+            )}
             <Link
               href="/"
               className="inline-block bg-black text-white font-bold rounded-xl px-5 py-2 text-sm hover:bg-gray-800 transition-colors"
