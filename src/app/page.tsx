@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useSession, signOut } from "next-auth/react";
 import Link from "next/link";
 
 type Game = {
   id: string;
-  // הוסף כאן שדות נוספים אם יש (למשל name, status וכו')
+  status?: string;
+  ticketPrice?: number;
 };
 
 export default function HomePage() {
@@ -15,19 +16,46 @@ export default function HomePage() {
   const [activeGame, setActiveGame] = useState<Game | null>(null);
   const [noGame, setNoGame] = useState(false);
 
-  useEffect(() => {
-    fetch("/api/games/current")
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.game) {
-          setActiveGame(d.game);
-        } else {
-          setNoGame(true);
-        }
-      })
-      .catch(() => setNoGame(true))
-      .finally(() => setChecked(true));
+  const loadCurrentGame = useCallback(async () => {
+    try {
+      const r = await fetch("/api/games/current");
+      const d = await r.json();
+      if (d.game) {
+        setActiveGame(d.game);
+        setNoGame(false);
+      } else {
+        setActiveGame(null);
+        setNoGame(true);
+      }
+    } catch {
+      setNoGame(true);
+    } finally {
+      setChecked(true);
+    }
   }, []);
+
+  useEffect(() => {
+    // טעינה ראשונית
+    loadCurrentGame();
+  }, [loadCurrentGame]);
+
+  // 🔥 polling כל 5 שניות – רק כשהחלון בפוקוס
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (document.hasFocus()) {
+        loadCurrentGame();
+      }
+    }, 5000);
+
+    // רענון מיידי כשהמשתמש חוזר לחלון
+    const onFocus = () => loadCurrentGame();
+    window.addEventListener("focus", onFocus);
+
+    return () => {
+      clearInterval(id);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [loadCurrentGame]);
 
   const role = (session?.user as { role?: string } | undefined)?.role;
   const isLoading = status === "loading" || !checked;
@@ -81,7 +109,7 @@ export default function HomePage() {
               )}
 
               {/* אין משחק פעיל */}
-              {noGame && (
+              {noGame && !activeGame && (
                 <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 text-center mb-2">
                   <p className="text-sm text-gray-500">
                     אין כרגע משחק פעיל. חזרו מאוחר יותר.
