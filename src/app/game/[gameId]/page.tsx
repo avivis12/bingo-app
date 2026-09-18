@@ -25,6 +25,20 @@ type Game = {
 type Ticket = { id: string; numbers: number[]; userId: string };
 type Winner = { id: string; name: string };
 
+// 🔥 פונקציה לקביעת צבע הכדור לפי טווח
+function getBallColor(ball: number): string {
+  if (ball <= 19) return "bg-blue-500";
+  if (ball <= 38) return "bg-green-500";
+  if (ball <= 57) return "bg-yellow-400";
+  return "bg-red-500";
+}
+
+// 🔥 פונקציה לקביעת צבע הטקסט (צהוב דורש טקסט כהה)
+function getBallTextColor(ball: number): string {
+  if (ball >= 39 && ball <= 57) return "text-black";
+  return "text-white";
+}
+
 export default function GamePage({ params }: { params: Promise<{ gameId: string }> }) {
   const { gameId } = use(params);
   const { data: session } = useSession();
@@ -178,7 +192,6 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
   useEffect(() => {
     if (!userId || !game) return;
 
-    // שורה — הזוכה עצמו, אחרי אישור האדמין
     if (
       game.lineDistributed &&
       !shownLineWinModal &&
@@ -193,7 +206,6 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
       setShownLineWinModal(true);
     }
 
-    // בינגו — הזוכה עצמו, אחרי אישור האדמין
     if (
       game.bingoDistributed &&
       !shownBingoWinModal &&
@@ -330,7 +342,6 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
       return;
     }
 
-    // 🔥 לא פותחים מודאל — רק הודעה שההכרזה נרשמה
     showAnnouncement("✓ ההכרזה שלך נרשמה — ממתין לאישור האדמין", "success", 6000);
 
     await loadState();
@@ -534,13 +545,22 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
           </div>
         )}
 
+        {/* 🔥 כדור מרכזי — עם צבעים לפי טווח */}
         {game.status === "LIVE" && (
           <div className="sticky top-0 z-20 -mx-3 px-3 py-2 sm:py-0 sm:mx-0 sm:px-0 sm:relative sm:top-auto bg-gray-50 sm:bg-transparent mb-3 sm:mb-4">
             <div className="text-center">
               <div className="text-[10px] sm:text-xs text-gray-500 mb-1">הכדור האחרון</div>
-              <div className="inline-flex items-center justify-center w-20 h-20 sm:w-28 sm:h-28 rounded-full bg-black text-white text-3xl sm:text-4xl font-extrabold shadow-lg">
-                {lastBall ?? "—"}
-              </div>
+              {lastBall ? (
+                <div
+                  className={`inline-flex items-center justify-center w-20 h-20 sm:w-28 sm:h-28 rounded-full ${getBallColor(lastBall)} ${getBallTextColor(lastBall)} text-3xl sm:text-4xl font-extrabold shadow-lg`}
+                >
+                  {lastBall}
+                </div>
+              ) : (
+                <div className="inline-flex items-center justify-center w-20 h-20 sm:w-28 sm:h-28 rounded-full bg-gray-200 text-gray-500 text-3xl sm:text-4xl font-extrabold shadow-lg">
+                  —
+                </div>
+              )}
             </div>
           </div>
         )}
