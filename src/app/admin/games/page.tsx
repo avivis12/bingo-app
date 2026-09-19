@@ -32,6 +32,9 @@ const STATUS_STYLES: Record<string, string> = {
 
 const ACTIVE_STATUSES = ["SELLING", "COUNTDOWN", "LIVE"];
 
+const INITIAL_VISIBLE = 5;
+const LOAD_MORE_STEP = 5;
+
 export default function AdminGamesPage() {
   const [games, setGames] = useState<Game[]>([]);
   const [ticketPrice, setTicketPrice] = useState("50");
@@ -43,6 +46,9 @@ export default function AdminGamesPage() {
     game: Game;
     action: "CANCEL" | "FINISH";
   } | null>(null);
+
+  // 🔥 הצג עוד / הצג פחות
+  const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE);
 
   async function load() {
     setLoading(true);
@@ -66,7 +72,10 @@ export default function AdminGamesPage() {
       const res = await fetch("/api/admin/games", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ticketPrice: Number(ticketPrice), maxTicketsPerUser: 4 }),
+        body: JSON.stringify({
+          ticketPrice: Number(ticketPrice),
+          maxTicketsPerUser: 4,
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -105,29 +114,40 @@ export default function AdminGamesPage() {
 
   const hasActiveGame = games.some((g) => ACTIVE_STATUSES.includes(g.status));
 
+  // 🔥 חיתוך הרשימה
+  const visibleGames = games.slice(0, visibleCount);
+  const hasMore = games.length > visibleCount;
+  const canCollapse = visibleCount > INITIAL_VISIBLE;
+
   return (
     <div dir="rtl">
       <div className="flex items-center justify-between mb-2">
-        <h1 className="text-3xl font-bold">ניהול משחקים</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold">ניהול משחקים</h1>
         <button
           onClick={load}
-          className="text-sm text-gray-500 hover:text-black transition-colors"
+          className="text-xs sm:text-sm text-gray-500 hover:text-black transition-colors"
         >
           🔄 רענן
         </button>
       </div>
-      <p className="text-gray-500 mb-8">צור משחקים, עקוב אחר פעילים, ופתח חדרי בקרה</p>
+      <p className="text-xs sm:text-sm text-gray-500 mb-4 sm:mb-6">
+        צור משחקים, עקוב אחר פעילים, ופתח חדרי בקרה
+      </p>
 
       {/* יצירת משחק חדש */}
       {!hasActiveGame && (
-        <div className="bg-white border border-gray-200 rounded-2xl p-6 mb-8">
-          <h2 className="font-bold text-lg mb-4">יצירת משחק חדש</h2>
-          <div className="flex flex-wrap items-end gap-4">
+        <div className="bg-white border border-gray-200 rounded-2xl p-4 sm:p-6 mb-4 sm:mb-6">
+          <h2 className="font-bold text-base sm:text-lg mb-3 sm:mb-4">
+            יצירת משחק חדש
+          </h2>
+          <div className="flex flex-wrap items-end gap-3 sm:gap-4">
             <div>
-              <label className="block text-sm text-gray-500 mb-1">מחיר לכרטיס (מטבעות)</label>
+              <label className="block text-xs text-gray-500 mb-1">
+                מחיר לכרטיס (מטבעות)
+              </label>
               <input
                 type="number"
-                className="border border-gray-300 rounded-xl px-4 py-2 text-black w-32 focus:outline-none focus:border-black transition-colors"
+                className="border border-gray-300 rounded-xl px-3 py-2 text-sm text-black w-24 focus:outline-none focus:border-black transition-colors"
                 value={ticketPrice}
                 onChange={(e) => setTicketPrice(e.target.value)}
               />
@@ -135,13 +155,13 @@ export default function AdminGamesPage() {
             <button
               onClick={createGame}
               disabled={creating}
-              className="bg-black text-white font-semibold rounded-xl px-6 py-2.5 hover:bg-gray-800 disabled:opacity-50 transition-colors"
+              className="bg-black text-white text-sm font-semibold rounded-xl px-4 sm:px-6 py-2.5 hover:bg-gray-800 disabled:opacity-50 transition-colors"
             >
               {creating ? "יוצר..." : "צור משחק ופתח מכירה"}
             </button>
           </div>
           {error && (
-            <p className="text-red-600 text-sm mt-3 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+            <p className="text-red-600 text-xs mt-3 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
               {error}
             </p>
           )}
@@ -149,92 +169,126 @@ export default function AdminGamesPage() {
       )}
 
       {hasActiveGame && (
-        <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 mb-8 text-sm text-gray-600">
+        <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 mb-4 sm:mb-6 text-xs sm:text-sm text-gray-600">
           ℹ️ יש כבר משחק פעיל — יש לסיים/לבטל אותו לפני יצירת משחק חדש.
         </div>
       )}
 
       {/* רשימת משחקים */}
       <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h2 className="font-bold">כל המשחקים ({games.length})</h2>
+        <div className="px-3 sm:px-6 py-3 sm:py-4 border-b border-gray-200 flex items-center justify-between">
+          <h2 className="font-bold text-sm sm:text-base">
+            כל המשחקים ({games.length})
+          </h2>
+          <span className="text-[10px] sm:text-xs text-gray-400">
+            {Math.min(visibleCount, games.length)} מתוך {games.length}
+          </span>
         </div>
 
         {loading ? (
-          <div className="p-12 text-center">
+          <div className="p-8 text-center">
             <div className="inline-block w-6 h-6 border-2 border-gray-300 border-t-black rounded-full animate-spin" />
           </div>
         ) : games.length === 0 ? (
-          <div className="p-12 text-center text-gray-400">אין משחקים עדיין</div>
+          <div className="p-8 text-center text-gray-400 text-sm">אין משחקים עדיין</div>
         ) : (
-          <ul className="divide-y divide-gray-200">
-            {games.map((g) => {
-              const isActive = ACTIVE_STATUSES.includes(g.status);
-              const isBusy = busyId === g.id;
-              return (
-                <li
-                  key={g.id}
-                  className="p-6 flex flex-wrap gap-4 justify-between items-center hover:bg-gray-50 transition-colors"
-                >
-                  <div className="flex items-center gap-4 flex-1 min-w-0">
-                    <span
-                      className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${STATUS_STYLES[g.status]}`}
-                    >
-                      {STATUS_LABELS[g.status]}
-                    </span>
-                    <div className="min-w-0">
-                      <div className="font-medium text-black">
-                        {g.ticketPrice} מטבעות לכרטיס · {g._count.tickets} כרטיסים
-                      </div>
-                      <div className="text-xs text-gray-500 mt-0.5">
-                        {new Date(g.createdAt).toLocaleString("he-IL")}
+          <>
+            <ul className="divide-y divide-gray-200">
+              {visibleGames.map((g) => {
+                const isActive = ACTIVE_STATUSES.includes(g.status);
+                const isBusy = busyId === g.id;
+                return (
+                  <li
+                    key={g.id}
+                    className="p-3 sm:p-5 flex flex-wrap gap-2 sm:gap-4 justify-between items-center hover:bg-gray-50 transition-colors"
+                  >
+                    <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                      <span
+                        className={`px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-semibold whitespace-nowrap ${STATUS_STYLES[g.status]}`}
+                      >
+                        {STATUS_LABELS[g.status]}
+                      </span>
+                      <div className="min-w-0">
+                        <div className="font-medium text-black text-xs sm:text-sm">
+                          {g.ticketPrice} מטבעות · {g._count.tickets} כרטיסים
+                        </div>
+                        <div className="text-[10px] sm:text-xs text-gray-500 mt-0.5">
+                          {new Date(g.createdAt).toLocaleString("he-IL")}
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div className="flex items-center gap-2">
-                    {isActive && (
-                      <button
-                        disabled={isBusy}
-                        onClick={() => setConfirmAction({ game: g, action: "FINISH" })}
-                        className="bg-black text-white rounded-xl px-4 py-2 text-sm font-medium hover:bg-gray-800 disabled:opacity-50 transition-colors"
+                    <div className="flex items-center gap-1.5 sm:gap-2">
+                      {isActive && (
+                        <button
+                          disabled={isBusy}
+                          onClick={() =>
+                            setConfirmAction({ game: g, action: "FINISH" })
+                          }
+                          className="bg-black text-white rounded-lg px-2.5 sm:px-4 py-1.5 sm:py-2 text-[10px] sm:text-sm font-medium hover:bg-gray-800 disabled:opacity-50 transition-colors"
+                        >
+                          {isBusy ? "..." : "סיים"}
+                        </button>
+                      )}
+
+                      {isActive && (
+                        <button
+                          disabled={isBusy}
+                          onClick={() =>
+                            setConfirmAction({ game: g, action: "CANCEL" })
+                          }
+                          className="bg-white text-red-600 border border-red-300 rounded-lg px-2.5 sm:px-4 py-1.5 sm:py-2 text-[10px] sm:text-sm font-medium hover:bg-red-50 disabled:opacity-50 transition-colors"
+                        >
+                          {isBusy ? "..." : "בטל"}
+                        </button>
+                      )}
+
+                      <Link
+                        href={`/admin/games/${g.id}`}
+                        className="bg-white text-black border border-gray-300 rounded-lg px-2.5 sm:px-4 py-1.5 sm:py-2 text-[10px] sm:text-sm font-medium hover:bg-black hover:text-white transition-colors whitespace-nowrap"
                       >
-                        {isBusy ? "..." : "סיים"}
-                      </button>
-                    )}
+                        חדר בקרה →
+                      </Link>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
 
-                    {isActive && (
-                      <button
-                        disabled={isBusy}
-                        onClick={() => setConfirmAction({ game: g, action: "CANCEL" })}
-                        className="bg-white text-red-600 border border-red-300 rounded-xl px-4 py-2 text-sm font-medium hover:bg-red-50 disabled:opacity-50 transition-colors"
-                      >
-                        {isBusy ? "..." : "בטל"}
-                      </button>
-                    )}
-
-                    <Link
-                      href={`/admin/games/${g.id}`}
-                      className="bg-white text-black border border-gray-300 rounded-xl px-4 py-2 text-sm font-medium hover:bg-black hover:text-white transition-colors"
-                    >
-                      חדר בקרה →
-                    </Link>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
+            {/* 🔥 כפתורי הצג עוד / הצג פחות */}
+            <div className="px-3 sm:px-6 py-3 border-t border-gray-200 flex flex-col gap-2">
+              {hasMore && (
+                <button
+                  onClick={() =>
+                    setVisibleCount((c) => c + LOAD_MORE_STEP)
+                  }
+                  className="w-full bg-gray-50 text-black border border-gray-200 rounded-xl py-2.5 text-xs sm:text-sm font-bold hover:bg-gray-100 transition-colors"
+                >
+                  הצג עוד (
+                  {Math.min(LOAD_MORE_STEP, games.length - visibleCount)})
+                </button>
+              )}
+              {canCollapse && (
+                <button
+                  onClick={() => setVisibleCount(INITIAL_VISIBLE)}
+                  className="w-full text-gray-500 text-[10px] sm:text-xs hover:text-black transition-colors underline-offset-4 hover:underline"
+                >
+                  הצג פחות
+                </button>
+              )}
+            </div>
+          </>
         )}
       </div>
 
       {/* מודאל אישור */}
       {confirmAction && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl">
-            <h3 className="text-xl font-bold mb-2">
+          <div className="bg-white rounded-2xl max-w-md w-full p-5 sm:p-6 shadow-xl">
+            <h3 className="text-lg sm:text-xl font-bold mb-2">
               {confirmAction.action === "CANCEL" ? "ביטול משחק" : "סיום משחק"}
             </h3>
-            <p className="text-gray-600 mb-6 text-sm">
+            <p className="text-gray-600 mb-4 sm:mb-6 text-xs sm:text-sm">
               {confirmAction.action === "CANCEL" ? (
                 <>
                   האם לבטל את המשחק? הכרטיסים שנרכשו ייחשבו כמבוטלים.
@@ -251,14 +305,16 @@ export default function AdminGamesPage() {
               <button
                 onClick={() => setConfirmAction(null)}
                 disabled={busyId !== null}
-                className="bg-white text-black border border-gray-300 rounded-xl px-5 py-2.5 font-medium hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                className="bg-white text-black border border-gray-300 rounded-xl px-4 py-2 text-sm font-medium hover:bg-gray-50 disabled:opacity-50 transition-colors"
               >
                 ביטול
               </button>
               <button
-                onClick={() => performAction(confirmAction.game.id, confirmAction.action)}
+                onClick={() =>
+                  performAction(confirmAction.game.id, confirmAction.action)
+                }
                 disabled={busyId !== null}
-                className={`rounded-xl px-5 py-2.5 font-semibold disabled:opacity-50 transition-colors ${
+                className={`rounded-xl px-4 py-2 text-sm font-semibold disabled:opacity-50 transition-colors ${
                   confirmAction.action === "CANCEL"
                     ? "bg-red-600 text-white hover:bg-red-700"
                     : "bg-black text-white hover:bg-gray-800"
