@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useCallback, useEffect, useMemo, useState } from "react";
+import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { TicketGrid } from "@/components/TicketGrid";
@@ -8,6 +8,13 @@ import { WinModal } from "@/components/WinModal";
 import { hasMarkedLine, hasMarkedBingo, TOTAL_BALLS } from "@/lib/tickets";
 import { useGameChannel } from "@/lib/useGameChannel";
 import type { GameEvent } from "@/lib/realtime";
+import {
+  announceBallVoice,
+  initVoices,
+  unlockAudio,
+  isVoiceEnabled,
+  setVoiceEnabled,
+} from "@/lib/announceBallVoice";
 
 type Game = {
   id: string;
@@ -25,7 +32,6 @@ type Game = {
 type Ticket = { id: string; numbers: number[]; userId: string };
 type Winner = { id: string; name: string };
 
-// 🔥 פונקציה לקביעת צבע הכדור לפי טווח
 function getBallColor(ball: number): string {
   if (ball <= 19) return "bg-blue-500";
   if (ball <= 38) return "bg-green-500";
@@ -33,7 +39,6 @@ function getBallColor(ball: number): string {
   return "bg-red-500";
 }
 
-// 🔥 פונקציה לקביעת צבע הטקסט (צהוב דורש טקסט כהה)
 function getBallTextColor(ball: number): string {
   if (ball >= 39 && ball <= 57) return "text-black";
   return "text-white";
@@ -77,17 +82,17 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
   const [showBoard, setShowBoard] = useState(false);
   const [autoMark, setAutoMark] = useState<Record<string, boolean>>({});
 
-  // 🔥 שמות הזוכים
   const [lineWinners, setLineWinners] = useState<Winner[]>([]);
   const [bingoWinners, setBingoWinners] = useState<Winner[]>([]);
 
-  // 🔥 מעקב התראות — כדי לא להציג את אותה הודעה שוב
   const [notifiedLineCount, setNotifiedLineCount] = useState(0);
   const [notifiedBingoCount, setNotifiedBingoCount] = useState(0);
 
-  // 🔥 מעקב פתיחת מודאל — כדי לא לפתוח שוב אחרי שהמשתמש סגר
   const [shownLineWinModal, setShownLineWinModal] = useState(false);
   const [shownBingoWinModal, setShownBingoWinModal] = useState(false);
+
+  const [voiceOn, setVoiceOn] = useState(true);
+  const lastAnnouncedBallRef = useRef<number | null>(null);
 
   const showAnnouncement = useCallback(
     (msg: string, type: "info" | "success" | "error" = "info", duration = 8000) => {
@@ -115,6 +120,11 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
   }, [loadState]);
 
   useEffect(() => {
+    initVoices();
+    setVoiceOn(isVoiceEnabled());
+  }, []);
+
+  useEffect(() => {
     if (!game) return;
     const intervalMs =
       game.status === "LIVE"
@@ -138,7 +148,6 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
     return () => clearInterval(id);
   }, []);
 
-  // 🔥 הודעה קופצת "📏 שורה!" — רק אחרי שהאדמין אישר (lineDistributed)
   useEffect(() => {
     if (!game?.lineDistributed) return;
     if (lineWinners.length > notifiedLineCount) {
@@ -163,7 +172,6 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
     showAnnouncement,
   ]);
 
-  // 🔥 הודעה קופצת "🏆 בינגו!" — רק אחרי שהאדמין אישר (bingoDistributed)
   useEffect(() => {
     if (!game?.bingoDistributed) return;
     if (bingoWinners.length > notifiedBingoCount) {
@@ -188,7 +196,6 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
     showAnnouncement,
   ]);
 
-  // 🔥 פתיחת מודאל "זכית!" — רק אחרי שהאדמין אישר, ורק לזוכה עצמו
   useEffect(() => {
     if (!userId || !game) return;
 
@@ -257,6 +264,16 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
       ? Math.max(0, Math.floor((new Date(game.countdownEndsAt).getTime() - now) / 1000))
       : null;
 
+  useEffect(() => {
+    if (!voiceOn) return;
+    if (!lastBall) return;
+    if (game?.status !== "LIVE") return;
+    if (lastAnnouncedBallRef.current === lastBall) return;
+
+    announceBallVoice(lastBall);
+    lastAnnouncedBallRef.current = lastBall;
+  }, [lastBall, game?.status, voiceOn]);
+
   function toggleMark(ticketId: string, num: number) {
     if (!game) return;
     if (!drawnSet.has(num)) return;
@@ -297,6 +314,11 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
   }, [game?.ballsDrawn, autoMark, myTickets, drawnSet, game]);
 
   async function handlePurchase() {
+    unlockAudio();
+    if (voiceOn) {
+      initVoices();
+    }
+
     setError(null);
     setPurchasing(true);
     try {
@@ -427,7 +449,6 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
           </span>
         </div>
 
-        {/* 🏆 באנר זוכה שורה — LIVE, אבל רק אחרי אישור האדמין */}
         {game.status === "LIVE" && game.lineDistributed && lineWinners.length > 0 && (
           <div className="bg-blue-500 text-white rounded-2xl p-3 text-center mb-3">
             <p className="text-[10px] sm:text-xs font-bold mb-1">📏 זוכה השורה:</p>
@@ -441,7 +462,6 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
           </div>
         )}
 
-        {/* 🎉 באנר סיום משחק */}
         {isFinished && (
           <div className="bg-yellow-400 text-gray-900 rounded-2xl p-4 text-center mb-3">
             <h2 className="text-lg font-bold mb-2">
@@ -545,11 +565,32 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
           </div>
         )}
 
-        {/* 🔥 כדור מרכזי — עם צבעים לפי טווח */}
         {game.status === "LIVE" && (
           <div className="sticky top-0 z-20 -mx-3 px-3 py-2 sm:py-0 sm:mx-0 sm:px-0 sm:relative sm:top-auto bg-gray-50 sm:bg-transparent mb-3 sm:mb-4">
             <div className="text-center">
-              <div className="text-[10px] sm:text-xs text-gray-500 mb-1">הכדור האחרון</div>
+              <div className="flex items-center justify-center gap-2 mb-1">
+                <div className="text-[10px] sm:text-xs text-gray-500">הכדור האחרון</div>
+                <button
+                  onClick={() => {
+                    const newState = !voiceOn;
+                    setVoiceOn(newState);
+                    setVoiceEnabled(newState);
+                    if (newState) {
+                      unlockAudio();
+                      initVoices();
+                      if (lastBall) announceBallVoice(lastBall);
+                    }
+                  }}
+                  className={`text-sm px-2 py-0.5 rounded-full font-bold transition-colors ${
+                    voiceOn
+                      ? "bg-black text-white hover:bg-gray-800"
+                      : "bg-gray-200 text-gray-500 hover:bg-gray-300"
+                  }`}
+                  title={voiceOn ? "השתק" : "הפעל קול"}
+                >
+                  {voiceOn ? "🔊" : "🔇"}
+                </button>
+              </div>
               {lastBall ? (
                 <div
                   className={`inline-flex items-center justify-center w-20 h-20 sm:w-28 sm:h-28 rounded-full ${getBallColor(lastBall)} ${getBallTextColor(lastBall)} text-3xl sm:text-4xl font-extrabold shadow-lg`}
@@ -565,11 +606,12 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
           </div>
         )}
 
+        {/* 🔥 לוח הכדורים — כפתור הצג/הסתר בכל הגדלים */}
         {game.status === "LIVE" && (
           <>
             <button
               onClick={() => setShowBoard((s) => !s)}
-              className="sm:hidden w-full bg-white border border-gray-200 rounded-xl p-3 mb-3 flex items-center justify-between text-xs text-gray-500 font-medium"
+              className="w-full bg-white border border-gray-200 rounded-xl p-3 mb-3 flex items-center justify-between text-xs text-gray-500 font-medium hover:bg-gray-50 transition-colors"
             >
               <span>לוח הכדורים ({drawnSet.size}/75)</span>
               <span>{showBoard ? "▲ הסתר" : "▼ הצג"}</span>
@@ -577,10 +619,10 @@ export default function GamePage({ params }: { params: Promise<{ gameId: string 
 
             <div
               className={`bg-white border border-gray-200 rounded-2xl p-3 mb-3 ${
-                showBoard ? "block" : "hidden sm:block"
+                showBoard ? "block" : "hidden"
               }`}
             >
-              <div className="hidden sm:block text-xs text-gray-500 text-center mb-2 font-medium">
+              <div className="text-xs text-gray-500 text-center mb-2 font-medium">
                 לוח הכדורים
               </div>
               <div
